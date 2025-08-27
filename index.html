@@ -21,7 +21,7 @@
       --radius: 16px;
       --shadow: 0 10px 30px rgba(0,0,0,.35);
       --transition: 200ms cubic-bezier(.2,.8,.2,1);
-      --w: min(1000px, 80vw); /* middle ~80% */
+      --w: min(1400px, 90vw); /* middle ~80% */
     }
 
     html, body { height: 100%; }
@@ -53,10 +53,10 @@
 
     /* Mod commands list */
     .cmd-list { display: grid; gap: 12px; }
-    .cmd-row { border: 1px solid var(--border); background: var(--panel); border-radius: 14px; padding: 14px 16px; transition: transform 220ms cubic-bezier(.2,.8,.2,1), background var(--transition), box-shadow var(--transition), border-color var(--transition); }
-    .cmd-row:hover { transform: scale(1.015); background: #232b43; box-shadow: 0 12px 28px rgba(10,12,18,.35); border-color: #3a4680; }
-    .cmd-name { font-weight: 800; font-size: 18px; letter-spacing: .25px; margin-bottom: 6px; }
-    .cmd-desc { color: var(--muted); font-weight: 600; line-height: 1.5; }
+    .cmd-row { display: grid; grid-template-columns: minmax(220px, 360px) 1fr; column-gap: 18px; align-items: center; border: 1px solid var(--border); background: var(--panel); border-radius: 14px; padding: 16px 18px; transition: transform 220ms cubic-bezier(.2,.8,.2,1), background var(--transition), box-shadow var(--transition), border-color var(--transition); }
+    .cmd-row:hover { transform: scale(1.02); background: #232b43; box-shadow: 0 12px 28px rgba(10,12,18,.35); border-color: #3a4680; }
+    .cmd-name { font-weight: 800; font-size: 18px; letter-spacing: .25px; margin: 0; white-space: nowrap; }
+    .cmd-desc { color: var(--muted); font-weight: 700; line-height: 1.6; }
 
     /* Key-value table styling (for second object) */
     .kv { display: grid; grid-template-columns: 220px 1fr; gap: 8px 10px; }
@@ -81,6 +81,7 @@
     .controls input { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; outline: none; font-weight: 700; width: 100%; }
     .controls input::placeholder { color: #7380a8; font-weight: 600; }
     .controls button { white-space: nowrap; }
+  @media (max-width: 760px){ .cmd-row{ grid-template-columns: 1fr; row-gap: 6px; } }
   </style>
 </head>
 <body>
@@ -94,14 +95,6 @@
     </header>
 
     <!-- Optional controls to point at a different Gist/file without editing code -->
-    <div class="controls">
-      <input id="gistId" placeholder="Gist ID (or leave to use URL ?gist=...)" aria-label="Gist ID" />
-      <input id="fileName" placeholder="Filename (default: modCommandsWebsite.json)" aria-label="Gist file name" />
-      <button class="tab-btn" id="loadBtn">Load</button>
-      <div class="spacer"></div>
-      <a class="link" id="gistLink" target="_blank" rel="noopener">Open Gist</a>
-    </div>
-
     <nav class="tabs" role="tablist" id="tabs"></nav>
 
     <section id="panels"></section>
@@ -135,18 +128,7 @@
       tabs: [],
     };
 
-    // Hook up inputs
-    $('#gistId').value = state.gist;
-    $('#fileName').value = state.file;
-    $('#gistLink').href = state.gist ? `https://gist.github.com/${state.gist}` : '#';
-    $('#gistLink').textContent = state.gist ? 'Open Gist' : 'No Gist yet';
-
-    $('#loadBtn').addEventListener('click', () => {
-      state.gist = $('#gistId').value.trim() || state.gist;
-      state.file = $('#fileName').value.trim() || state.file;
-      location.search = `?gist=${encodeURIComponent(state.gist)}&file=${encodeURIComponent(state.file)}`;
-    });
-
+    // Hook up inputs (removed for public view)
     // ===== Fetch JSON from the Gist API =====
     async function fetchGistJSON(gistId, fileName) {
       setStatus('Contacting GitHub…');
@@ -254,7 +236,7 @@
       try {
         const data = await fetchGistJSON(state.gist, state.file);
         state.data = data;
-        $('#gistLink').href = `https://gist.github.com/${state.gist}`;
+        
         render(data);
       } catch (err) {
         console.error(err);
