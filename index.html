@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mod Commands Viewer</title>
+  <style>
+    :root {
+      /* Soft dark theme (brighter than screenshot) */
+      --bg: #0f1320;           /* page background */
+      --panel: #171c2b;        /* panel background */
+      --panel-2: #1d2436;      /* panel hover / secondary */
+      --accent: #7aa2ff;       /* links / focus */
+      --text: #e7ebff;         /* primary text */
+      --muted: #a7b0d3;        /* secondary text */
+      --border: #2a3553;       /* hairline borders */
+      --chip: #222a42;         /* small chips */
+      --ok: #6ee7a1;
+      --warn: #ffd27a;
+      --err: #ff8e8e;
+      --radius: 16px;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --transition: 200ms cubic-bezier(.2,.8,.2,1);
+      --w: min(1000px, 80vw); /* middle ~80% */
+    }
+
+    html, body { height: 100%; }
+    body {
+      margin: 0; background: radial-gradient(1200px 600px at 70% -10%, #1a2140 0%, var(--bg) 40%), var(--bg);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      display: grid; place-items: start center; padding: 32px 0 80px;
+    }
+
+    .app { width: var(--w); background: color-mix(in srgb, var(--panel) 94%, transparent); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: clip; }
+
+    header {
+      padding: 20px 24px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, #1b2033 0%, var(--panel) 100%);
+      display: flex; gap: 12px; align-items: center; justify-content: space-between;
+    }
+    header .title { font-weight: 800; letter-spacing: .3px; font-size: 22px; }
+    header .meta { font-size: 12px; color: var(--muted); }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; padding: 8px; background: var(--panel-2); border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .tab-btn { appearance: none; border: 1px solid var(--border); background: var(--chip); color: var(--text); padding: 10px 14px; border-radius: 12px; font-weight: 700; letter-spacing: .2px; cursor: pointer; transition: background var(--transition), transform var(--transition), border-color var(--transition); }
+    .tab-btn:hover { transform: translateY(-1px); background: #26304e; }
+    .tab-btn[aria-selected="true"] { background: #2b3660; border-color: #3a4680; box-shadow: inset 0 0 0 1px rgba(122,162,255,.25); }
+
+    /* Panels */
+    .panel { display: none; padding: 20px 22px 28px; }
+    .panel[aria-hidden="false"] { display: block; }
+
+    /* Mod commands list */
+    .cmd-list { display: grid; gap: 12px; }
+    .cmd-row { border: 1px solid var(--border); background: var(--panel); border-radius: 14px; padding: 14px 16px; transition: transform 220ms cubic-bezier(.2,.8,.2,1), background var(--transition), box-shadow var(--transition), border-color var(--transition); }
+    .cmd-row:hover { transform: scale(1.015); background: #232b43; box-shadow: 0 12px 28px rgba(10,12,18,.35); border-color: #3a4680; }
+    .cmd-name { font-weight: 800; font-size: 18px; letter-spacing: .25px; margin-bottom: 6px; }
+    .cmd-desc { color: var(--muted); font-weight: 600; line-height: 1.5; }
+
+    /* Key-value table styling (for second object) */
+    .kv { display: grid; grid-template-columns: 220px 1fr; gap: 8px 10px; }
+    .kv .k { color: var(--muted); font-weight: 800; text-transform: uppercase; letter-spacing: .6px; font-size: 12px; align-self: center; }
+    .kv .v { background: var(--panel); border: 1px solid var(--border); padding: 12px 14px; border-radius: 12px; font-weight: 700; }
+
+    /* Utility */
+    .hidden { display:none; }
+    .row { display:flex; gap:10px; align-items:center; }
+    .spacer { flex: 1 1 auto; }
+    .link { color: var(--accent); text-decoration: none; font-weight: 800; }
+    .link:hover { text-decoration: underline; }
+    .badge { background: #223057; border: 1px solid #3a4680; padding: 4px 8px; border-radius: 999px; font-size: 12px; font-weight: 800; color: #d9e1ff; }
+
+    /* Status + loader */
+    .status { padding: 18px 22px; border-top: 1px solid var(--border); background: #12182a; color: var(--muted); font-size: 13px; display: flex; gap: 10px; align-items: center; }
+    .dot { width: 10px; height: 10px; border-radius: 999px; background: var(--warn); box-shadow: 0 0 0 3px rgba(255,210,122,.12); }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 0 3px rgba(110,231,161,.12); }
+    .dot.err { background: var(--err); box-shadow: 0 0 0 3px rgba(255,142,142,.12); }
+
+    .controls { padding: 14px 18px; border-bottom: 1px solid var(--border); display: flex; gap: 10px; align-items: center; background: #12182a; }
+    .controls input { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; outline: none; font-weight: 700; width: 100%; }
+    .controls input::placeholder { color: #7380a8; font-weight: 600; }
+    .controls button { white-space: nowrap; }
+  </style>
+</head>
+<body>
+  <main class="app" role="application" aria-label="Mod Commands Viewer">
+    <header>
+      <div class="row" style="gap:12px">
+        <div class="title">Channel Tools</div>
+        <span class="badge">Mod Commands</span>
+      </div>
+      <div class="meta" id="meta">Idle</div>
+    </header>
+
+    <!-- Optional controls to point at a different Gist/file without editing code -->
+    <div class="controls">
+      <input id="gistId" placeholder="Gist ID (or leave to use URL ?gist=...)" aria-label="Gist ID" />
+      <input id="fileName" placeholder="Filename (default: modCommandsWebsite.json)" aria-label="Gist file name" />
+      <button class="tab-btn" id="loadBtn">Load</button>
+      <div class="spacer"></div>
+      <a class="link" id="gistLink" target="_blank" rel="noopener">Open Gist</a>
+    </div>
+
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+
+    <section id="panels"></section>
+
+    <div class="status" id="status"><span class="dot" id="dot"></span><span id="statusText">Waiting…</span></div>
+  </main>
+
+  <script>
+    // ===== CONFIG =====
+    // Prefer query params: ?gist=GIST_ID&file=modCommandsWebsite.json
+    // Fallback to constants below.
+    const DEFAULTS = {
+      gist: "", // ← fill if you want a baked-in default
+      file: "modCommandsWebsite.json",
+    };
+
+    const $ = (sel, el=document) => el.querySelector(sel);
+    const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+    const setStatus = (text, cls) => {
+      $('#statusText').textContent = text;
+      $('#meta').textContent = text;
+      const dot = $('#dot'); dot.classList.remove('ok','err'); if(cls) dot.classList.add(cls);
+    };
+
+    const qp = new URLSearchParams(location.search);
+    const state = {
+      gist: qp.get('gist') || DEFAULTS.gist,
+      file: qp.get('file') || DEFAULTS.file,
+      rawURL: null,
+      data: null,
+      tabs: [],
+    };
+
+    // Hook up inputs
+    $('#gistId').value = state.gist;
+    $('#fileName').value = state.file;
+    $('#gistLink').href = state.gist ? `https://gist.github.com/${state.gist}` : '#';
+    $('#gistLink').textContent = state.gist ? 'Open Gist' : 'No Gist yet';
+
+    $('#loadBtn').addEventListener('click', () => {
+      state.gist = $('#gistId').value.trim() || state.gist;
+      state.file = $('#fileName').value.trim() || state.file;
+      location.search = `?gist=${encodeURIComponent(state.gist)}&file=${encodeURIComponent(state.file)}`;
+    });
+
+    // ===== Fetch JSON from the Gist API =====
+    async function fetchGistJSON(gistId, fileName) {
+      setStatus('Contacting GitHub…');
+      const api = `https://api.github.com/gists/${gistId}`;
+      const res = await fetch(api);
+      if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+      const gist = await res.json();
+      const file = gist.files[fileName];
+      if (!file) throw new Error(`File not found in Gist: ${fileName}`);
+      const raw = await fetch(file.raw_url);
+      if (!raw.ok) throw new Error(`Raw fetch ${raw.status}`);
+      const txt = await raw.text();
+      try { return JSON.parse(txt); } catch (e) { throw new Error('Invalid JSON in file'); }
+    }
+
+    // ===== Renderers =====
+    function clearPanels() { $('#tabs').innerHTML = ''; $('#panels').innerHTML = ''; state.tabs = []; }
+
+    function makeTab(name, idx) {
+      const btn = document.createElement('button');
+      btn.className = 'tab-btn';
+      btn.role = 'tab';
+      btn.id = `tab-${idx}`;
+      btn.setAttribute('aria-controls', `panel-${idx}`);
+      btn.setAttribute('aria-selected', idx===0 ? 'true':'false');
+      btn.textContent = name;
+      btn.addEventListener('click', () => activate(idx));
+      return btn;
+    }
+
+    function makePanel(idx) {
+      const el = document.createElement('div');
+      el.className = 'panel';
+      el.id = `panel-${idx}`;
+      el.setAttribute('aria-hidden', idx===0 ? 'false':'true');
+      return el;
+    }
+
+    function activate(idx) {
+      $$('#tabs .tab-btn').forEach((b,i)=> b.setAttribute('aria-selected', i===idx?'true':'false'));
+      $$('#panels .panel').forEach((p,i)=> p.setAttribute('aria-hidden', i===idx?'false':'true'));
+    }
+
+    function render(data) {
+      clearPanels();
+
+      // Expect: Array of objects (2 objects typical)
+      if (!Array.isArray(data)) throw new Error('Top-level JSON must be an array.');
+
+      data.forEach((obj, i) => {
+        const [key] = Object.keys(obj);
+        const value = obj[key];
+
+        const tab = makeTab(prettyKey(key), i);
+        $('#tabs').appendChild(tab);
+        const panel = makePanel(i);
+        $('#panels').appendChild(panel);
+
+        if (Array.isArray(value)) {
+          // List of mod commands
+          panel.appendChild(renderModCommands(value));
+        } else if (value && typeof value === 'object') {
+          // Key-value style details
+          panel.appendChild(renderKeyValue(value));
+        } else {
+          const pre = document.createElement('pre');
+          pre.textContent = JSON.stringify(value, null, 2);
+          panel.appendChild(pre);
+        }
+      });
+
+      activate(0);
+      setStatus('Loaded', 'ok');
+    }
+
+    function prettyKey(s) {
+      return String(s).replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[\-_]/g,' ').replace(/\b\w/g, c=>c.toUpperCase());
+    }
+
+    function renderModCommands(list) {
+      const wrap = document.createElement('div');
+      wrap.className = 'cmd-list';
+      list.forEach(item => {
+        const row = document.createElement('div'); row.className = 'cmd-row';
+        const name = document.createElement('div'); name.className = 'cmd-name'; name.textContent = item.commandName ?? 'Unnamed';
+        const desc = document.createElement('div'); desc.className = 'cmd-desc'; desc.textContent = item.commandExplanation ?? '';
+        row.append(name, desc); wrap.appendChild(row);
+      });
+      return wrap;
+    }
+
+    function renderKeyValue(obj) {
+      const wrap = document.createElement('div'); wrap.className = 'kv';
+      Object.entries(obj).forEach(([k,v]) => {
+        const ke = document.createElement('div'); ke.className = 'k'; ke.textContent = prettyKey(k);
+        const ve = document.createElement('div'); ve.className = 'v'; ve.textContent = typeof v === 'object' ? JSON.stringify(v, null, 2) : String(v);
+        wrap.append(ke, ve);
+      });
+      return wrap;
+    }
+
+    // ===== Kickoff =====
+    (async () => {
+      if (!state.gist) { setStatus('Add a Gist ID (or use ?gist=...)'); return; }
+      try {
+        const data = await fetchGistJSON(state.gist, state.file);
+        state.data = data;
+        $('#gistLink').href = `https://gist.github.com/${state.gist}`;
+        render(data);
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message || 'Failed to load', 'err');
+      }
+    })();
+  </script>
+</body>
+</html>
